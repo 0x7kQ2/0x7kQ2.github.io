@@ -1,7 +1,6 @@
 import * as THREE from "./vendor/three.module.js";
 
 const canvas = document.getElementById("c");
-const hint = document.getElementById("hint");
 
 const xSegs = 32;
 const ySegs = 22;
@@ -203,7 +202,6 @@ function onPointerDown(event) {
   dragPlane.setFromNormalAndCoplanarPoint(camDir.clone().negate(), hits[0].point);
   dragParticle = nearestParticle(hits[0].point);
   dragPos.copy(hits[0].point);
-  hint.classList.add("hide");
 }
 
 function onPointerMove(event) {
@@ -328,4 +326,3 @@ function frame(now) {
 }
 
 requestAnimationFrame(frame);
-setTimeout(() => hint.classList.add("hide"), 4500);

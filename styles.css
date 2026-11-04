@@ -75,8 +75,6 @@ body.dragging {
   font: 700 clamp(15px, 2.6vw, 28px) / 1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   letter-spacing: 0.04em;
   text-decoration: none;
-  border-bottom: 2px solid #000;
-  padding-bottom: 2px;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -88,13 +86,12 @@ body.dragging {
     0 0 22px rgba(255, 0, 0, 0.75),
     0 0 36px rgba(255, 40, 40, 0.45);
   filter: drop-shadow(0 0 4px rgba(255, 0, 0, 0.55));
-  transition: text-shadow 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
+  transition: text-shadow 0.15s ease, filter 0.15s ease;
 }
 
 #term-nav a:hover,
 #term-nav a:focus-visible {
   outline: none;
-  border-bottom-color: #1a0000;
   text-shadow:
     0 0 2px #ff3b3b,
     0 0 8px #ff0000,
@@ -122,6 +119,5 @@ body.dragging {
 
   #term-nav a {
     font-size: clamp(11px, 3.2vw, 15px);
-    border-bottom-width: 1.5px;
   }
 }

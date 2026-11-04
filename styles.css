@@ -26,6 +26,32 @@ body.dragging {
   background: #000;
 }
 
+#brand {
+  position: fixed;
+  top: max(18px, env(safe-area-inset-top, 0px) + 12px);
+  left: max(18px, env(safe-area-inset-left, 0px) + 12px);
+  z-index: 10;
+  pointer-events: none;
+  user-select: none;
+  color: #39ff6a;
+  font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: clamp(22px, 3.2vw, 36px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1;
+  text-shadow:
+    0 0 2px #39ff6a,
+    0 0 8px rgba(57, 255, 106, 0.95),
+    0 0 16px rgba(57, 255, 106, 0.75),
+    0 0 28px rgba(40, 220, 90, 0.45);
+  filter: drop-shadow(0 0 5px rgba(57, 255, 106, 0.55));
+  opacity: 0;
+  animation: termFadeIn 1.4s ease forwards;
+  animation-delay: 0.35s;
+}
+
 #term-nav {
   position: fixed;
   left: 0;

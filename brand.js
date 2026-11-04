@@ -3,8 +3,11 @@ const brand = document.getElementById("brand");
 const brandText = document.getElementById("brand-text");
 const brandCursor = document.getElementById("brand-cursor");
 const social = document.getElementById("social");
+const otherBtn = document.getElementById("other-btn");
+const otherPanel = document.getElementById("other-panel");
 
 let open = false;
+let otherOpen = false;
 let typingDone = false;
 
 function typeBrand() {
@@ -33,11 +36,25 @@ function setSocial(visible) {
   document.body.classList.toggle("social-open", visible);
 }
 
+function setOther(visible) {
+  otherOpen = visible;
+  otherPanel.hidden = !visible;
+  otherBtn.setAttribute("aria-expanded", visible ? "true" : "false");
+}
+
 function toggleSocial(event) {
   event.preventDefault();
   event.stopPropagation();
   if (!typingDone) return;
+  if (otherOpen) setOther(false);
   setSocial(!open);
+}
+
+function toggleOther(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (open) setSocial(false);
+  setOther(!otherOpen);
 }
 
 brand.addEventListener("click", toggleSocial);
@@ -50,6 +67,23 @@ brand.addEventListener(
 );
 
 social.addEventListener(
+  "pointerdown",
+  (event) => {
+    event.stopPropagation();
+  },
+  { capture: true }
+);
+
+otherBtn.addEventListener("click", toggleOther);
+otherBtn.addEventListener(
+  "pointerdown",
+  (event) => {
+    event.stopPropagation();
+  },
+  { capture: true }
+);
+
+otherPanel.addEventListener(
   "pointerdown",
   (event) => {
     event.stopPropagation();

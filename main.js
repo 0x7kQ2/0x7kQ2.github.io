@@ -1,15 +1,29 @@
-import * as THREE from "three";
+import * as THREE from "./vendor/three.module.js";
 
 const canvas = document.getElementById("c");
 const hint = document.getElementById("hint");
+const errBox = document.getElementById("err");
 
-const xSegs = 32;
-const ySegs = 22;
-const restDistance = 11;
+function fail(msg) {
+  errBox.hidden = false;
+  errBox.textContent = msg;
+  throw new Error(msg);
+}
+
+if (!canvas) fail("Canvas missing.");
+if (!window.WebGLRenderingContext) fail("WebGL is not available on this device.");
+
+const isMobile =
+  window.matchMedia("(max-width: 900px), (pointer: coarse)").matches ||
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+const xSegs = isMobile ? 22 : 32;
+const ySegs = isMobile ? 16 : 22;
+const restDistance = isMobile ? 13 : 11;
 const clothWidth = restDistance * xSegs;
 const clothHeight = restDistance * ySegs;
 
-const DAMPING = 0.028;
+const DAMPING = 0.03;
 const DRAG = 1 - DAMPING;
 const MASS = 0.1;
 const TIMESTEP = 16 / 1000;
@@ -52,13 +66,11 @@ const constraints = [];
 
 for (let v = 0; v <= ySegs; v++) {
   for (let u = 0; u <= xSegs; u++) {
-    particles.push(
-      new Particle(
-        u * restDistance - clothWidth * 0.5,
-        clothHeight * 0.5 - v * restDistance,
-        0
-      )
-    );
+    const x = u * restDistance - clothWidth * 0.5;
+    const y = clothHeight * 0.5 - v * restDistance;
+    // start already billowed so it isn't invisible black-on-black
+    const z = Math.sin((u / xSegs) * Math.PI) * (18 + (isMobile ? 10 : 0));
+    particles.push(new Particle(x, y, z));
   }
 }
 
@@ -100,63 +112,68 @@ function satisfy(c) {
   p2.position.sub(diff);
 }
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: "high-performance"
-});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: !isMobile,
+    powerPreference: "high-performance",
+    alpha: false
+  });
+} catch (e) {
+  fail("Could not create WebGL context.");
+}
+
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.75 : 2));
 renderer.setClearColor(0x000000, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.35;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.FogExp2(0x000000, 0.0015);
 
-const camera = new THREE.PerspectiveCamera(
-  28,
-  window.innerWidth / window.innerHeight,
-  1,
-  5000
-);
+const camera = new THREE.PerspectiveCamera(32, 1, 1, 8000);
 
-scene.add(new THREE.AmbientLight(0x141414, 1.4));
+scene.add(new THREE.AmbientLight(0x202020, 1.6));
 
-const key = new THREE.DirectionalLight(0xffffff, 1.5);
-key.position.set(160, 240, 360);
+const key = new THREE.DirectionalLight(0xffffff, 1.7);
+key.position.set(140, 220, 360);
 scene.add(key);
 
-const rim = new THREE.DirectionalLight(0x55ff66, 0.45);
-rim.position.set(-160, 60, -220);
+const rim = new THREE.DirectionalLight(0x66ff66, 0.55);
+rim.position.set(-140, 40, -180);
 scene.add(rim);
 
-const fill = new THREE.PointLight(0x203020, 55, 1000, 2);
-fill.position.set(60, -30, 240);
+const fill = new THREE.PointLight(0x274027, 70, 1200, 2);
+fill.position.set(40, -20, 260);
 scene.add(fill);
 
 const geometry = new THREE.PlaneGeometry(clothWidth, clothHeight, xSegs, ySegs);
 
-const texture = new THREE.TextureLoader().load("./assets/flag.png", (tex) => {
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  tex.needsUpdate = true;
-});
+const texture = new THREE.TextureLoader().load(
+  "./assets/flag.png",
+  (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    tex.needsUpdate = true;
+  },
+  undefined,
+  () => fail("Failed to load flag texture.")
+);
 texture.colorSpace = THREE.SRGBColorSpace;
 
 const material = new THREE.MeshPhysicalMaterial({
   map: texture,
   emissiveMap: texture,
-  emissive: new THREE.Color(0x2bff2b),
-  emissiveIntensity: 0.65,
-  color: new THREE.Color(0x030303),
+  emissive: new THREE.Color(0x33ff33),
+  emissiveIntensity: isMobile ? 0.95 : 0.7,
+  color: new THREE.Color(0x050505),
   roughness: 0.78,
   metalness: 0.04,
   sheen: 1,
   sheenRoughness: 0.65,
-  sheenColor: new THREE.Color(0x173317),
+  sheenColor: new THREE.Color(0x1a3a1a),
   side: THREE.DoubleSide
 });
 
@@ -165,9 +182,9 @@ cloth.frustumCulled = false;
 scene.add(cloth);
 
 const pole = new THREE.Mesh(
-  new THREE.CylinderGeometry(3.4, 4, clothHeight + 90, 20),
+  new THREE.CylinderGeometry(3.4, 4, clothHeight + 90, isMobile ? 12 : 20),
   new THREE.MeshStandardMaterial({
-    color: 0x0b0b0b,
+    color: 0x121212,
     roughness: 0.3,
     metalness: 0.9
   })
@@ -176,11 +193,11 @@ pole.position.set(-clothWidth * 0.5 - 1.5, -8, 0);
 scene.add(pole);
 
 const tip = new THREE.Mesh(
-  new THREE.SphereGeometry(6, 20, 20),
+  new THREE.SphereGeometry(6, 16, 16),
   new THREE.MeshStandardMaterial({
     color: 0x0e120e,
     emissive: 0x1a331a,
-    emissiveIntensity: 0.5,
+    emissiveIntensity: 0.55,
     metalness: 0.95,
     roughness: 0.22
   })
@@ -196,14 +213,24 @@ const camDir = new THREE.Vector3();
 
 let dragging = false;
 let dragParticle = null;
-let dragPos = new THREE.Vector3();
+const dragPos = new THREE.Vector3();
+
+function viewportSize() {
+  const vv = window.visualViewport;
+  if (vv) return { w: Math.max(1, vv.width), h: Math.max(1, vv.height) };
+  return {
+    w: Math.max(1, window.innerWidth),
+    h: Math.max(1, window.innerHeight)
+  };
+}
 
 function setPointer(event) {
   const rect = canvas.getBoundingClientRect();
-  const x = event.touches ? event.touches[0].clientX : event.clientX;
-  const y = event.touches ? event.touches[0].clientY : event.clientY;
-  pointer.x = ((x - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((y - rect.top) / rect.height) * 2 + 1;
+  const src = event.touches && event.touches[0] ? event.touches[0] : event;
+  const x = src.clientX;
+  const y = src.clientY;
+  pointer.x = ((x - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+  pointer.y = -((y - rect.top) / Math.max(rect.height, 1)) * 2 + 1;
 }
 
 function nearestParticle(point) {
@@ -222,6 +249,11 @@ function nearestParticle(point) {
 
 function onPointerDown(event) {
   event.preventDefault();
+  if (event.target.setPointerCapture && event.pointerId != null) {
+    try {
+      event.target.setPointerCapture(event.pointerId);
+    } catch (_) {}
+  }
   setPointer(event);
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObject(cloth);
@@ -256,26 +288,25 @@ function onPointerUp() {
   document.body.classList.remove("dragging");
 }
 
-canvas.addEventListener("pointerdown", onPointerDown);
-window.addEventListener("pointermove", onPointerMove);
-window.addEventListener("pointerup", onPointerUp);
-window.addEventListener("pointercancel", onPointerUp);
-canvas.addEventListener("touchstart", (e) => { e.preventDefault(); onPointerDown(e); }, { passive: false });
-window.addEventListener("touchmove", (e) => { if (dragging) { e.preventDefault(); onPointerMove(e); } }, { passive: false });
-window.addEventListener("touchend", onPointerUp);
+canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+canvas.addEventListener("pointermove", onPointerMove, { passive: false });
+canvas.addEventListener("pointerup", onPointerUp);
+canvas.addEventListener("pointercancel", onPointerUp);
+canvas.addEventListener("pointerleave", onPointerUp);
 
 const wind = new THREE.Vector3();
 const localWind = new THREE.Vector3();
 
 function simulate(now) {
   const t = now * 0.001;
+  const windScale = isMobile ? 42 : 34;
 
   wind.set(
-    0.45 + Math.sin(t * 0.65) * 0.2,
-    Math.cos(t * 0.85) * 0.1,
-    0.35 + Math.sin(t * 1.15) * 0.45 + Math.cos(t * 0.35) * 0.15
+    0.5 + Math.sin(t * 0.65) * 0.22,
+    Math.cos(t * 0.85) * 0.12,
+    0.45 + Math.sin(t * 1.15) * 0.5 + Math.cos(t * 0.35) * 0.18
   );
-  wind.multiplyScalar(34);
+  wind.multiplyScalar(windScale);
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -283,15 +314,14 @@ function simulate(now) {
     const ny = p.original.y / clothHeight;
     const gust = 0.55 + 0.45 * Math.sin(t * 1.8 + nx * 8 + ny * 4);
     localWind.copy(wind).multiplyScalar(gust);
-    // ripple along free edge
-    localWind.z += Math.sin(t * 2.4 + nx * 10) * 4 * (nx + 0.5);
-
+    localWind.z += Math.sin(t * 2.4 + nx * 10) * 5 * (nx + 0.5);
     p.addForce(GRAVITY);
     p.addForce(localWind);
     p.integrate(TIMESTEP_SQ);
   }
 
-  for (let pass = 0; pass < 5; pass++) {
+  const passes = isMobile ? 4 : 5;
+  for (let pass = 0; pass < passes; pass++) {
     for (let i = 0; i < constraints.length; i++) satisfy(constraints[i]);
 
     for (const i of pinIndices) {
@@ -309,7 +339,6 @@ function simulate(now) {
 
 function updateGeometry() {
   const pos = geometry.attributes.position;
-  // PlaneGeometry vertex order matches our u-major, v-down grid
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i].position;
     pos.setXYZ(i, p.x, p.y, p.z);
@@ -318,20 +347,35 @@ function updateGeometry() {
   geometry.computeVertexNormals();
 }
 
-function onResize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  camera.aspect = w / Math.max(h, 1);
+function fitCamera() {
+  const { w, h } = viewportSize();
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(w, h, false);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
 
-  const target = Math.max(clothWidth / camera.aspect, clothHeight) * 1.28;
-  camera.position.set(18, 8, target / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)));
-  camera.lookAt(10, -6, 0);
+  // Fit whole flag + pole in both portrait and landscape
+  const margin = isMobile ? 1.22 : 1.18;
+  const fitW = clothWidth + 40;
+  const fitH = clothHeight + 70;
+  const vFov = THREE.MathUtils.degToRad(camera.fov);
+  const distH = (fitH * 0.5 * margin) / Math.tan(vFov * 0.5);
+  const hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * camera.aspect);
+  const distW = (fitW * 0.5 * margin) / Math.tan(hFov * 0.5);
+  const dist = Math.max(distH, distW);
+
+  camera.position.set(8, 0, dist);
+  camera.lookAt(8, -4, 0);
 }
 
-window.addEventListener("resize", onResize);
-onResize();
+window.addEventListener("resize", fitCamera);
+window.addEventListener("orientationchange", () => setTimeout(fitCamera, 150));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", fitCamera);
+  window.visualViewport.addEventListener("scroll", fitCamera);
+}
+fitCamera();
 
 let last = performance.now();
 function frame(now) {
@@ -345,4 +389,4 @@ function frame(now) {
 }
 
 requestAnimationFrame(frame);
-setTimeout(() => hint.classList.add("hide"), 4500);
+setTimeout(() => hint.classList.add("hide"), 5000);

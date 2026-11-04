@@ -123,18 +123,14 @@ const camera = new THREE.PerspectiveCamera(
   5000
 );
 
-scene.add(new THREE.AmbientLight(0x141414, 1.4));
+scene.add(new THREE.AmbientLight(0x0a0a0a, 0.55));
 
-const key = new THREE.DirectionalLight(0xffffff, 1.5);
+const key = new THREE.DirectionalLight(0xffffff, 0.35);
 key.position.set(160, 240, 360);
 scene.add(key);
 
-const rim = new THREE.DirectionalLight(0x55ff66, 0.45);
-rim.position.set(-160, 60, -220);
-scene.add(rim);
-
-const fill = new THREE.PointLight(0x203020, 55, 1000, 2);
-fill.position.set(60, -30, 240);
+const fill = new THREE.DirectionalLight(0xffffff, 0.12);
+fill.position.set(-120, 40, 180);
 scene.add(fill);
 
 const geometry = new THREE.PlaneGeometry(clothWidth, clothHeight, xSegs, ySegs);
@@ -146,47 +142,20 @@ const texture = new THREE.TextureLoader().load("./assets/flag.png", (tex) => {
 });
 texture.colorSpace = THREE.SRGBColorSpace;
 
-const material = new THREE.MeshPhysicalMaterial({
+const material = new THREE.MeshStandardMaterial({
   map: texture,
   emissiveMap: texture,
-  emissive: new THREE.Color(0x2bff2b),
-  emissiveIntensity: 0.65,
-  color: new THREE.Color(0x030303),
-  roughness: 0.78,
-  metalness: 0.04,
-  sheen: 1,
-  sheenRoughness: 0.65,
-  sheenColor: new THREE.Color(0x173317),
+  emissive: new THREE.Color(0xffffff),
+  emissiveIntensity: 0.12,
+  color: new THREE.Color(0x000000),
+  roughness: 0.95,
+  metalness: 0,
   side: THREE.DoubleSide
 });
 
 const cloth = new THREE.Mesh(geometry, material);
 cloth.frustumCulled = false;
 scene.add(cloth);
-
-const pole = new THREE.Mesh(
-  new THREE.CylinderGeometry(3.4, 4, clothHeight + 90, 20),
-  new THREE.MeshStandardMaterial({
-    color: 0x0b0b0b,
-    roughness: 0.3,
-    metalness: 0.9
-  })
-);
-pole.position.set(-clothWidth * 0.5 - 1.5, -8, 0);
-scene.add(pole);
-
-const tip = new THREE.Mesh(
-  new THREE.SphereGeometry(6, 20, 20),
-  new THREE.MeshStandardMaterial({
-    color: 0x0e120e,
-    emissive: 0x1a331a,
-    emissiveIntensity: 0.5,
-    metalness: 0.95,
-    roughness: 0.22
-  })
-);
-tip.position.set(-clothWidth * 0.5 - 1.5, clothHeight * 0.5 + 48, 0);
-scene.add(tip);
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -324,19 +293,17 @@ function onResize() {
   const portrait = h > w;
 
   camera.aspect = w / h;
-  // Slightly wider FOV on phones so the flag reads larger
-  camera.fov = portrait ? 38 : 28;
+  camera.fov = portrait ? 32 : 28;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
 
   const vFov = THREE.MathUtils.degToRad(camera.fov);
-  const margin = portrait ? 1.12 : 1.25;
-  // Portrait: size by height so it doesn't zoom into oblivion
-  // Landscape/desktop: fit width + height like the original
+  // Portrait: keep visible but smaller; desktop unchanged feel
+  const margin = portrait ? 1.85 : 1.25;
   const fitH = ((clothHeight * 0.5) * margin) / Math.tan(vFov * 0.5);
   const hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * camera.aspect);
   const fitW = ((clothWidth * 0.5) * margin) / Math.tan(hFov * 0.5);
-  const dist = portrait ? fitH : Math.max(fitH, fitW);
+  const dist = portrait ? fitH * 1.15 : Math.max(fitH, fitW);
 
   camera.position.set(portrait ? 0 : 18, portrait ? 0 : 8, dist);
   camera.lookAt(portrait ? 0 : 10, portrait ? 0 : -6, 0);

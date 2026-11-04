@@ -319,18 +319,34 @@ function updateGeometry() {
 }
 
 function onResize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  camera.aspect = w / Math.max(h, 1);
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  const portrait = h > w;
+
+  camera.aspect = w / h;
+  // Slightly wider FOV on phones so the flag reads larger
+  camera.fov = portrait ? 38 : 28;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
 
-  const target = Math.max(clothWidth / camera.aspect, clothHeight) * 1.28;
-  camera.position.set(18, 8, target / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)));
-  camera.lookAt(10, -6, 0);
+  const vFov = THREE.MathUtils.degToRad(camera.fov);
+  const margin = portrait ? 1.12 : 1.25;
+  // Portrait: size by height so it doesn't zoom into oblivion
+  // Landscape/desktop: fit width + height like the original
+  const fitH = ((clothHeight * 0.5) * margin) / Math.tan(vFov * 0.5);
+  const hFov = 2 * Math.atan(Math.tan(vFov * 0.5) * camera.aspect);
+  const fitW = ((clothWidth * 0.5) * margin) / Math.tan(hFov * 0.5);
+  const dist = portrait ? fitH : Math.max(fitH, fitW);
+
+  camera.position.set(portrait ? 0 : 18, portrait ? 0 : 8, dist);
+  camera.lookAt(portrait ? 0 : 10, portrait ? 0 : -6, 0);
 }
 
 window.addEventListener("resize", onResize);
+window.addEventListener("orientationchange", () => setTimeout(onResize, 200));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", onResize);
+}
 onResize();
 
 let last = performance.now();

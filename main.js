@@ -286,9 +286,9 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
 
-  // Classic fit that worked on desktop; extra margin on tall phones
+  // Fill more of the view on tall phones; keep desktop comfortable
   const tall = h > w;
-  const margin = tall ? 1.45 : 1.25;
+  const margin = tall ? 1.08 : 1.2;
   const span = Math.max(clothWidth / camera.aspect, clothHeight) * margin;
   camera.position.set(0, 0, span / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)));
   camera.lookAt(0, 0, 0);

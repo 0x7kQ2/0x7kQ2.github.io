@@ -234,6 +234,104 @@ window.addEventListener("touchend", onPointerUp);
 const wind = new THREE.Vector3();
 const localWind = new THREE.Vector3();
 
+// Quiet fabric/wind bed driven by real cloth motion (needs a click/tap to unlock)
+const flagAudio = {
+  ctx: null,
+  master: null,
+  rustleGain: null,
+  flapGain: null,
+  band: null,
+  ready: false,
+  motion: 0,
+  flap: 0,
+
+  async unlock() {
+    if (this.ready) {
+      if (this.ctx.state === "suspended") await this.ctx.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = 0.045; // keep overall quiet
+    master.connect(ctx.destination);
+
+    // soft pink-ish noise for cloth rustle
+    const seconds = 2;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < data.length; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.02 * white) / 1.02;
+      data[i] = last * 3.5;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+
+    const band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = 420;
+    band.Q.value = 0.7;
+
+    const rustleGain = ctx.createGain();
+    rustleGain.gain.value = 0;
+
+    noise.connect(band);
+    band.connect(rustleGain);
+    rustleGain.connect(master);
+    noise.start();
+
+    // very soft low whoosh for bigger flaps
+    const flapOsc = ctx.createOscillator();
+    flapOsc.type = "sine";
+    flapOsc.frequency.value = 55;
+    const flapFilter = ctx.createBiquadFilter();
+    flapFilter.type = "lowpass";
+    flapFilter.frequency.value = 140;
+    const flapGain = ctx.createGain();
+    flapGain.gain.value = 0;
+    flapOsc.connect(flapFilter);
+    flapFilter.connect(flapGain);
+    flapGain.connect(master);
+    flapOsc.start();
+
+    this.ctx = ctx;
+    this.master = master;
+    this.rustleGain = rustleGain;
+    this.flapGain = flapGain;
+    this.band = band;
+    this.ready = true;
+    if (ctx.state === "suspended") await ctx.resume();
+  },
+
+  update(motion, flap, windMag) {
+    if (!this.ready || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    // smooth toward targets so it follows waves without crackling
+    this.motion += (motion - this.motion) * 0.12;
+    this.flap += (flap - this.flap) * 0.1;
+
+    const rustle = Math.min(0.22, this.motion * 0.045 + windMag * 0.0015);
+    const whoosh = Math.min(0.08, this.flap * 0.02);
+    const freq = 280 + Math.min(900, this.motion * 90 + this.flap * 40);
+
+    this.rustleGain.gain.setTargetAtTime(rustle, t, 0.05);
+    this.flapGain.gain.setTargetAtTime(whoosh, t, 0.08);
+    this.band.frequency.setTargetAtTime(freq, t, 0.08);
+  }
+};
+
+function unlockAudio() {
+  flagAudio.unlock().catch(() => {});
+}
+canvas.addEventListener("pointerdown", unlockAudio, { once: false });
+window.addEventListener("touchstart", unlockAudio, { once: false, passive: true });
+window.addEventListener("keydown", unlockAudio, { once: true });
+
 function simulate(now) {
   const t = now * 0.001;
 
@@ -272,6 +370,25 @@ function simulate(now) {
       dragParticle.previous.copy(dragPos);
     }
   }
+
+  // sample motion after physics: speed + free-edge flap
+  let speedSum = 0;
+  let flapSum = 0;
+  let samples = 0;
+  for (let i = 0; i < particles.length; i++) {
+    if (pinIndices.has(i)) continue;
+    const p = particles[i];
+    const vx = p.position.x - p.previous.x;
+    const vy = p.position.y - p.previous.y;
+    const vz = p.position.z - p.previous.z;
+    speedSum += Math.sqrt(vx * vx + vy * vy + vz * vz);
+    const u = i % (xSegs + 1);
+    if (u > xSegs * 0.55) flapSum += Math.abs(vz);
+    samples++;
+  }
+  const avgSpeed = samples ? speedSum / samples : 0;
+  const avgFlap = samples ? flapSum / Math.max(1, samples * 0.45) : 0;
+  flagAudio.update(avgSpeed, avgFlap, wind.length());
 }
 
 function updateGeometry() {
